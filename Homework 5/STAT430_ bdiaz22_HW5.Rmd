@@ -1,0 +1,183 @@
+---
+title: 'Homework 5'
+date: "04/11/2022"
+output:
+  pdf_document: default
+subtitle: 'STAT 430: Infectious Diseases Modeling'
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+
+opts_chunk$set(
+  progress=TRUE,
+  prompt=FALSE,tidy=FALSE,highlight=TRUE,
+  strip.white=TRUE,
+  warning=TRUE,
+  message=FALSE,
+  error=TRUE,
+  echo=TRUE,
+  cache=TRUE,
+  results='markup',
+  fig.show='asis',
+  size='small',
+  fig.height=2.5,fig.width=5
+)
+options(
+  keep.source=TRUE,
+  encoding="UTF-8"
+)
+```
+
+## Parts 1-4
+
+```{r }
+# Libraries
+library(bbmle)
+library(epimdr)
+library(deSolve)
+library(tidyverse)
+```
+
+## SXR function:
+
+```{r model}
+sxr <- function(t, y, pars){
+  # State variables
+  S <- y[1]
+  X <- y[2]
+  R <- y[3]
+  
+  # Parameter values
+  beta <- pars["beta"]
+  gamma <- pars["gamma"]
+  tau1 <- pars ["tau1"]
+  tau2 <- pars ["tau2"]
+  m <- pars ["m"]
+  c <- pars ["c"]
+  mu <- pars ["mu"]
+  
+
+  # Equations
+  dS <- m*mu + beta*S*X - (tau1+tau2+gamma+mu)*S
+  
+  dX <- (1-m)*mu +(tau1+tau2+gamma)*S + (tau2+gamma)*R - beta*S*X - beta*(1-c)*R*X - mu*X 
+  
+  dR <- beta*(1-c)*R*X - (mu +tau2+gamma)*R
+  
+  # Return list of gradients
+  out <- c(dS, dX, dR)
+  list(out)
+}
+```
+
+```{r}
+times<-seq(0, 250, by = 1)
+paras <- c(beta = 1, c = 0.05, mu = 1/10, gamma = 1/30, m = 0.75, tau1 = 1/5, tau2 = 1/10)
+init <- c(S = 0.0001, X = 0.9998, R = 0.0001)
+
+data_out <- ode(y=init , times = times, func = sxr, parms = paras)
+data_out <- as_tibble(data_out)
+```
+
+
+```{r}
+data_out %>% pivot_longer(cols = S:R, 
+  names_to = "Compartment", values_to = "Frequency") %>%
+  ggplot(aes(time,Frequency, col=Compartment)) + 
+  geom_line(size=1) + theme_bw()
+```
+
+## Parts 5,6, and 7
+# Beta
+
+
+```{r}
+beta <- seq(0,3, by = 0.1)
+
+beta.int = data.frame(NULL)
+
+for (i in 1:length(beta))
+{
+  paras <- c(beta = beta[i], c = 0.05, mu = 1/10, gamma = 1/30, m = 0.75, tau1 = 1/5, tau2 = 1/10)
+
+data.beta <- ode(y=init , times = times, func = sxr, parms = paras) 
+data.beta <- as_tibble(data.beta)
+
+beta.int <- rbind(beta.int, tibble(beta = beta[i], slice_tail(data.beta, n=1)))
+}
+
+```
+
+```{r}
+beta.a <- beta.int %>%pivot_longer(cols = S:R, 
+  names_to = "Compartment", values_to = "Frequancy")
+
+betaplot <- beta.a %>%
+  ggplot(aes(beta,Frequancy, col=Compartment)) + 
+  geom_line(size=1) + theme_bw() + xlab("Beta")
+
+betaplot
+
+```
+
+# Tau1
+
+
+```{r}
+tau1 <- seq(0,0.5, by = 0.05)
+
+tau1.int = data.frame()
+for (i in 1:length(tau1))
+{
+  paras <- c(beta = 1, c = 0.05, mu = 1/10, gamma = 1/30, m = 0.75, tau1 = tau1[i], tau2 = 1/10)
+
+data.tau1 <- ode(y=init , times = times, func = sxr, parms = paras) %>% as_tibble()
+
+tau1.int <- rbind(tau1.int, tibble(tau1 = tau1[i], slice_tail(data.tau1, n=1)))
+}
+```
+
+```{r}
+tau1.a <- tau1.int %>%pivot_longer(cols = S:R, 
+  names_to = "Compartment", values_to = "Frequancy")
+
+tau1plot <- tau1.a %>%
+  ggplot(aes(x = tau1, y= Frequancy, col=Compartment)) + 
+  geom_line(size=1) + theme_bw() + xlab("Tau1")
+
+tau1plot
+```
+
+# Tau2
+
+```{r}
+tau2 <- seq(0,0.5, by = 0.05)
+
+tau2.int = data.frame(NULL)
+for (i in 1:length(tau2))
+{
+  paras <- c(beta = 1, c = 0.05, mu = 1/10, gamma = 1/30, m = 0.75, tau1 = 1/5, tau2 = tau2[i])
+
+data.tau2<- ode(y=init , times = times, func = sxr, parms = paras) %>% as_tibble()
+
+tau2.int <- rbind(tau2.int,tibble(tau2 = tau2[i], slice_tail(data.tau2, n=1)))
+}
+```
+
+```{r}
+tau2.a <- tau2.int %>%pivot_longer(cols = S:R, 
+  names_to = "Compartment", values_to = "Frequancy")
+
+tau2plot <- tau2.a %>%
+  ggplot(aes(x = tau2, y= Frequancy, col=Compartment)) + 
+  geom_line(size=1) + theme_bw() + xlab("Tau2")
+
+tau2plot
+```
+
+
+## Part 8
+
+As beta is increasing, the prevalence of resistance increases and then seems to start leveling out just above 0.5. Now as tau1 is increasing, resistance also increases but it looks like resistance would slightly continue to increase over time. Now tau2, resistance is decreasing and then levels out to 0.
+
