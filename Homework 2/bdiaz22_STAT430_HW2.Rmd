@@ -1,0 +1,157 @@
+---
+title: "Homework 2"
+author: "PBrianna Diaz"
+date: "2/21/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(deSolve)
+library(tidyverse)
+
+opts_chunk$set(
+  progress=TRUE,
+  prompt=FALSE,tidy=FALSE,highlight=TRUE,
+  strip.white=TRUE,
+  warning=TRUE,
+  message=FALSE,
+  error=TRUE,
+  echo=TRUE,
+  cache=TRUE,
+  results='hide',
+  fig.show='asis',
+  size='small',
+  fig.height=4,fig.width=6.83
+)
+options(
+  keep.source=TRUE,
+  encoding="UTF-8"
+)
+```
+
+## Question 1
+
+Some infectious  diseases  have  2  modes  of 
+transmission: via direct contact with an infected individual or 
+indirectly by being exposed to an environmental reservoir (for 
+instance,  contaminated  water).  The  diagram  on  the  right 
+shows  the  transmission  of  one  of  these  diseases,  where 
+infected individuals shed virus into the environment reservoir 
+𝑉 at a rate 𝜔, and pathogens in this reservoir decay at a rate 𝜌. 
+The per capita birth/death rate of the host is given by 𝜇, and 
+infected individuals recover at rate 𝛾 
+
+a.) Write down the system of differential equations (20 points)
+
+b.) Use the Next Generation Method 
+![](/Users/briannadiaz/Desktop/hw2_1.png)
+
+##Question 2
+
+There is a new outbreak of a respiratory virus on campus. Luckily, there is a vaccine available 
+that provides full protection and immunity doesn’t wane over time. However, Urbana and Champaign 
+decide to proceed with two different strategies to contain this outbreak in the long term. Urbana decides to  vaccinate  20%  of  the  newborn  individuals  (𝑝  =  0.2),  while  Champaign  decides  to  vaccinate  the susceptible population at a rate 𝜈 = 0.2 𝑦𝑟/0. After 200 years, Champaign has eradicated the virus, while in Urbana, the virus became endemic.  
+
+a.) Estimate R0. 
+
+b.) Estimate the critical proportion of the newborns pc that needs to be vaccinated in order to eradicate the pathogen, and discuss why Urbana did not achieve this goal.
+
+c.) Estimate the critical vaccination rate of susceptible individuals vc necessary to eradicate the virus, and discuss why Champaign achieved this goal.
+![](/Users/briannadiaz/Desktop/hw2_2.png)
+
+d.) Plot the dynamics of the infected individuals between years 150 and 200, and discuss how these 
+values are related to the outcome observed in Champaign (disease free) and Urbana (endemicity). 
+
+#Champaign
+```{r}
+
+#setup
+Csir = function(t, y, pars){
+  S = y[1]
+  I = y[2]
+  R = y[3]
+  
+  beta <- pars["beta"]
+  gamma <- pars["gamma"]
+  mu <- pars["mu"]
+  v <- pars["v"]
+  
+  #width(as.list(parmas), {
+    dS = mu - beta*S*I - v*S- mu*S
+    dI = beta*S*I - gamma*I -mu*I
+    dR = gamma*I + v*S- mu*R
+    cout <- c(dS, dI, dR)
+    list(cout)
+  #})
+
+}
+
+
+#parms
+
+times1 <- seq(0, 200, by=1/365)
+paras1 <- c(beta = 265, gamma = 91.25, mu=0.02, v=0.2)
+init1 <- c(S=0.999, I=0.001, R=0)
+
+
+C_out <- ode(y = init1, times = times1, func = Csir, parms = paras1)%>% as.tibble()
+
+champlot <- C_out%>% pivot_longer(cols = S:R, 
+  names_to = "Variable", values_to = "Proportion") %>%
+  ggplot(aes(x = time, y = Proportion, col = Variable)) + 
+  geom_line(size = 1) + theme_bw() + xlab("Years")
+
+champlot
+
+#150 years
+
+Champ150 <- C_out %>% filter(time >=150) %>% ggplot(aes(x=time, y=I)) + geom_line(size=1)+ theme_bw()+ labs(x= "Years", y = "Proportion of infected")
+
+Champ150
+```
+
+These graphs show that Champaign has eradicated the infection. We can see that at the 150 year and on there are no oscillations and the proportion is on 0, indicating there are no infections. 
+
+# Urbana
+```{r}
+Usir <- function(t, y, pars){
+  S = y[1]
+  I = y[2]
+  R = y[3]
+  
+  beta <- pars["beta"]
+  gamma <- pars["gamma"]
+  mu <- pars["mu"]
+  p <- pars["p"]
+  
+  dS <- mu*(1-p) - beta*S*I - mu*S
+  dI <- beta*S*I - gamma*I - mu*I
+  dR <- gamma*I + mu*p - mu*R 
+  
+  Uout <- c(dS, dI, dR)
+  list(Uout)
+}
+
+times2 <- seq(0, 200, by=1/365)
+paras2 <- c(beta = 265, gamma = 91.25, mu=0.02, p=0.2)
+init2 <- c(S=0.999, I=0.001, R=0)
+
+U_out <- ode(y = init2, times = times2, func = Usir, parms = paras2)%>% as.tibble()
+
+Uplot <- U_out %>% pivot_longer(cols = S:R, 
+  names_to = "Variable", values_to = "Proportion") %>%
+  ggplot(aes(x = time, y = Proportion, col = Variable)) + 
+  geom_line(size = 1) + theme_bw() + xlab("Years")
+
+Uplot
+
+
+#150 years
+
+U150 <- U_out %>% filter(time >=150) %>% ggplot(aes(x=time, y=I)) + geom_line(size=1)+ theme_bw()+ labs(x= "Years", y = "Proportion of infected")
+
+U150
+```
+
+Urbana shows oscillations after 150 years, demonstrating that the infection is still on going. As we get to 200 years, we see that the oscillations are decreasing in height. Showing that the efforts to vaccinate are working but at a slower rate to eliminate the infection. 
