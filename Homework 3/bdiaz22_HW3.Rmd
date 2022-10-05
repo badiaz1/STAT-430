@@ -1,0 +1,149 @@
+---
+title: 'Homework 3'
+date: "03/10/2022"
+output:
+  pdf_document: default
+subtitle: 'STAT 430: Infectious Diseases Modeling'
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+
+opts_chunk$set(
+  progress=TRUE,
+  prompt=FALSE,tidy=FALSE,highlight=TRUE,
+  strip.white=TRUE,
+  warning=TRUE,
+  message=FALSE,
+  error=TRUE,
+  echo=TRUE,
+  cache=TRUE,
+  results='hide',
+  fig.show='asis',
+  size='small',
+  fig.height=2.5,fig.width=5
+)
+options(
+  keep.source=TRUE,
+  encoding="UTF-8"
+)
+```
+
+```{r echo=TRUE, results='markup'}
+# Libraries
+library(epimdr)
+library(deSolve)
+library(tidyverse)
+```
+
+##Exercise 1
+
+```{r}
+library(epimdr)
+library(deSolve)
+library(tidyverse)
+
+data(mossong)
+
+mossong %>% group_by(contactor) %>%
+  summarise(contact.rate = mean(contact.rate, na.rm=T)) %>%
+  ungroup() %>% ggplot() + 
+  geom_point(aes(contactor,contact.rate)) + 
+  labs(x = "Age of participant", y = "Contact rate") + 
+  theme_classic() + scale_x_continuous(breaks = seq(0,70,5)) + 
+  theme(axis.text = element_text(color = "black"))
+
+mossong <- mossong %>% as_tibble() %>%
+  mutate(contactor = case_when(contactor %>% 1:17 ~ "Children",
+    contactor %>% 18:100 ~ "Adults", TRUE ~ as.numeric(contactor)),
+    contactee = case_when(contactee %>% 1:17 ~ "Children",
+    contactee %>% 18:100 ~ "Adults", TRUE ~ as.numeric(contactee))) %>%
+  group_by(contactor, contactee) %>% 
+  summarise(contact.rate = mean(contact.rate, na.rm = T)) %>%
+  ungroup()
+```
+
+##Exercise 2
+
+##Exercise 3
+
+
+```{r}
+out <-coef(lm(log(cases)~day,data=subset(flu,day<=5)))
+round(out,digits=2)
+```
+
+#3a
+
+```{r}
+#what we have (r, 1.09=1/3(r-1))
+# solve 1.09 = 1/3r - 1/3
+# 1.42 = 1/3r
+# R0 = 4.26
+```
+
+#3b 
+```{r}
+sir <- function(t, y, pars){
+  # State variables
+  S <- y[1]
+  I <- y[2]
+  R <- y[3]
+  
+  # Parameter values
+  beta <- pars["beta"]
+  gamma <- pars["gamma"]
+
+  # Equations
+  dS <- - beta*S*I
+  dI <- beta*S*I - gamma*I
+  dR <- gamma*I 
+  
+  # Return list of gradients
+  out <- c(dS, dI, dR)
+  list(out)
+}
+
+# Evaluate the SIR model
+sse <- function(pars,flu){
+  init <- c(S=762,I=1,R=0)
+  out <- ode(y=init, times=flu$day, func = sir, 
+              parms = c(beta = pars[1], gamma = pars[2])) %>% as.data.frame()
+  return(sum((out$I-flu$cases)^2))
+}
+
+# Iterate over a wide range values of beta
+beta <- seq(from = 0.001,to = 0.005, length.out = 11)
+gamma <- 1/3
+out_sse <- tibble(NULL)
+for(i in 1:length(beta)) {
+  SSE <- as.numeric(unlist(sse(c(beta[i], gamma), flu)))
+  out_sse <- bind_rows(out_sse, tibble(beta = beta[i], SSE = SSE))
+}
+```
+
+
+
+```{r}
+init <- c(S=762,I=1,R=0)
+outSIR <- ode(y=init, times=flu$day, func = sir, 
+           parms = c(beta_fit, gamma = 0.4731)) %>% 
+  as.data.frame()
+
+flu %>% ggplot(aes(day, cases)) + geom_point() + 
+  geom_line(data = outSIR, aes(time, I), linetype = 2) + 
+  theme_bw() + scale_x_continuous(breaks = seq(0,15,2))
+
+```
+#3c.
+```{r}
+pars <- c(0.00252,1/3)
+fitOpt <- round(optim(par = pars, fn = sse, flu=flu)$par, digits = 4)
+params <- c(beta = fitOpt[1], gamma = fitOpt[2])
+params
+
+#762 * (0.0026/0.4731) =R0
+#R0 = 4.1966
+```
+
+#3d
