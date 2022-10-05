@@ -1,0 +1,205 @@
+---
+title: "Assignment 1"
+author: "Brianna Diaz"
+date: "2/7/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(deSolve)
+library(tidyverse)
+```
+
+## SIR Model 
+```{r}
+sir <- function(t, y, pars){
+  # State variables
+  S <- y[1]
+  I <- y[2]
+  R <- y[3]
+  
+  # Parameter values
+  beta <- pars["beta"]
+  gamma <- pars["gamma"]
+  
+  # Equations
+  dS <- - beta*S*I
+  dI <- beta*S*I - gamma*I
+  dR <- gamma*I 
+  out <- c(dS, dI, dR)
+  
+  # Return list of gradients
+  list(out)
+}
+
+times <- seq(0, 0.25, by = 1/365)
+paras <- c(beta = 200, gamma = 365/7)
+init <- c(S = 0.999, I = 0.001, R = 0)
+
+data_out <- ode(y = init, times = times, func = sir, parms = paras)
+data_out <- as_tibble(data_out)
+
+plot <- data_out %>% pivot_longer(cols = S:R, 
+  names_to = "Variable", values_to = "Proportion") %>%
+  mutate(timeD =time*365) %>%
+  ggplot(aes(x = timeD, y = Proportion, col = Variable)) + 
+  geom_line(size = 1) + theme_bw() + xlab("Time (days)")
+
+plot
+```
+
+
+1) Modify your model to be a SEIR with a latent period of 5 days (sigma = 365/5 per year). How 
+does the SEIR differ from the SIR model in terms of: (a) timing of the peak, (b) proportion of 
+susceptible once the outbreak goes extinct. (Use the parameters values for 𝛽 and 𝛾 provided 
+in lab1). (25 points) 
+```{r}
+seir <- function(t, y, pars){
+  # Variables 
+  S <- y[1]
+  E <- y[2]
+  I <- y[3]
+  R <- y[4]
+  
+  #parameter 
+   beta <- pars["beta"]
+  gamma <- pars["gamma"]
+  sigma <- pars["sigma"]
+  
+  #equations 
+  dS <- - beta*S*I
+  dE <- beta*S*I - sigma*E
+  dI <- sigma*E - gamma*I
+  dR <- gamma*I 
+  out1 <- c(dS, dE, dI, dR)
+  
+  list(out1)
+}
+
+#parameters
+times1<-seq(0, 0.25, by = 1/365)
+paras1 <- c(beta = 200, gamma = 365/7, sigma = 365/5)
+init1 <- c(S = 0.999, E = 0, I = 0.001, R = 0)
+
+#run code
+data_out1 <- ode(y = init1, times = times1, func = seir, parms = paras1)
+data_out1 <- as_tibble(data_out1)
+
+head(round(data_out1, digits = 2))
+
+tail(round(data_out1, digits = 2))
+
+#plot 
+
+plot1 <- data_out1 %>% pivot_longer(col = S:R, names_to="Variable", values_to = "Proportion") %>%
+  mutate(timeD = time*365) %>%
+  ggplot(aes(x = timeD, y = Proportion, col= Variable)) + geom_line(size=1) + theme_bw() + xlab("Time(days)")
+
+plot1
+
+```
+
+In comparison to the SIR model, the SEIR model (a) the peak of the infection is reached later than the SIR model. The peak is reached before the 25th day in the SIR versus the SEIR is is reached after the 25th day possibly even doubled. In comparison to proportion of susceptible once the out break goes extincted, they are both similar in that the proportion of susceptible will never reach 0 but will remain slightly above. 
+
+2) What would happen if we coded a SI model instead? Add a plot and a short paragraph 
+describing the outcome. (20 points) 
+```{r}
+si <- function(t, y, pars){
+  # Variables 
+  S <- y[1]
+  I <- y[2]
+
+  
+  #parameter 
+   beta <- pars["beta"]
+  gamma <- pars["gamma"]
+  
+  #equations 
+  dS <- - beta*S*I
+  dI <- beta*S*I 
+  out2 <- c(dS, dI)
+  
+  list(out2)
+}
+
+#parameters
+times2<-seq(0,0.25, by = 1/365)
+paras2 <- c(beta = 200, gamma = 365/7)
+init2 <- c(S = 0.999, I = 0.001)
+
+#run code
+data_out2 <- ode(y = init2, times = times2, func = si, parms = paras2)
+data_out2 <- as_tibble(data_out2)
+
+head(round(data_out2, digits = 2))
+
+tail(round(data_out2, digits = 2))
+
+#plot 
+
+plot2 <- data_out2 %>% pivot_longer(col = S:I, names_to="Variable", values_to = "Proportion") %>%
+  mutate(timeD = time*365) %>%
+  ggplot(aes(x = timeD, y = Proportion, col= Variable)) + geom_line(size=1) + theme_bw() + xlab("Time(days)")
+
+plot2
+```
+
+As we can see in the SI model, we are only using two parameters susceptible and infected individuals. Looking at the plot it shows that peak infection, intersection of the plot, is at around 20-21 days. because S and I are inverses of each other, as one loses the other gains, the differential equations then now equal 0. 
+
+3) What about a SIRS model with waning immunity after a month? (omega = 365/30 per year). 
+Run it for several years. What does it happen? How does this model differ from the SIR 
+model? Add a plot and a short paragraph describing the outcome. (25 points) 
+```{r}
+sirs <- function(t, y, pars){
+  # State variables
+  S <- y[1]
+  I <- y[2]
+  R <- y[3]
+  
+  # Parameter values
+  beta <- pars["beta"]
+  gamma <- pars["gamma"]
+  omega <- pars["omega"]
+  
+  # Equations
+  dS <- - beta*S*I + omega*R
+  dI <- beta*S*I - gamma*I
+  dR <- gamma*I - omega*R
+  out <- c(dS, dI, dR)
+  
+  # Return list of gradients
+  list(out)
+}
+
+times3 <- seq(0, 5, by = 1/365)
+paras3 <- c(beta = 200, gamma = 365/7, omega = 365/30 )
+init3 <- c(S = 0.999, I = 0.001, R = 0)
+
+data_out3 <- ode(y = init3, times = times3, func = sirs, parms = paras3)
+data_out3 <- as_tibble(data_out3)
+
+plot3 <- data_out3 %>% pivot_longer(cols = S:R, 
+  names_to = "Variable", values_to = "Proportion") %>%
+  mutate(timeD =time*365) %>%
+  ggplot(aes(x = timeD, y = Proportion, col = Variable)) + 
+  geom_line(size = 1) + theme_bw() + xlab("Time (days)")
+
+plot3
+
+
+plot4 <- data_out3 %>% pivot_longer(cols = S:R, 
+  names_to = "Variable", values_to = "Proportion") %>%
+  mutate(timeD =time*365) %>%
+  ggplot(aes(x = timeD, y = Proportion, col = Variable)) + 
+  geom_line(size = 1) + theme_bw() + xlab("Time (days)") + xlim(0,125)
+
+plot4
+
+```
+
+I ran my plot at the 5 year mark. I have added to plots to see it at the 5 year span and when we start to see the consistency between S,I and R. as can be seen in the plot. Because this in SIRS model, we can see how it already differs from the SIR model. In the SIR model when can see that R will continue to get closer to 1 while S and I get closer to 0. Where as in the SIRS model S,I, and R become constant at 0.25, 0.13, and 0.62 respectively, this is because individuals can become susceptible the infection will stay within the population. 
+
+Extra Credit:
+
+![](/Users/briannadiaz/Desktop/stat430_EC.png)
